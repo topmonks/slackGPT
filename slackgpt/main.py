@@ -41,10 +41,10 @@ class Conversation:
         self._temperature = 1.0
 
     def start(self):
-        self._post_msg(">>> NEW CONVERSATION STARTED")
+        self.post_msg("> New Conversation Started")
 
     def finish(self):
-        self._post_msg(">>> CONVERSATION FINISHED")
+        self.post_msg("> Conversation Finished")
 
     def add_sys_content(self, text):
         self._history.insert(0, {'role': 'system', 'content': text})
@@ -82,7 +82,7 @@ class Conversation:
                 log.info('ChatGPT Response: user=%s, text=%s' % (
                     self._user, gpt_response
                 ))
-                self._post_msg(gpt_response)
+                self.post_msg(gpt_response)
                 self._is_prompt_in_prg = False
             except Exception as e:
                 log.error('GPT Error: %s, retries=%d' % (e, retries))
@@ -91,13 +91,13 @@ class Conversation:
                     self.add_message(text, retries + 1)
                 else:
                     log.error("Unable to prompt ChatGPT, Max Retries Reached.")
-                    self._post_msg(
+                    self.post_msg(
                         'Sorry, We were unable to reach the ChatGPT service; '
                         'GptError=%s' % e
                     )
                     self._is_prompt_in_prg = False
         else:
-            self._post_msg("Please wait until your previous prompt is finished")
+            self.post_msg("Please wait until your previous prompt is finished")
 
     def set_temperature(self, t):
         if t < 0:
@@ -119,10 +119,20 @@ class Conversation:
 
         log.info('Max Tokens set, user=%s, max_tokens=%d' % (self._user, val))
 
+    def post_msg(self, msg, retries=0):
+        try:
+            self._client.chat_postMessage(channel=self._user, text=msg)
+        except Exception:
+            if retries < SLACK_ERROR_RETRIES:
+                log.error("Unable to send slack message, retrying...")
+                self.post_msg(msg, retries + 1)
+            else:
+                log.error("We were unable to ")
+
     def _inform_token_usage(self):
         curr_tokens = self._get_token_count(self._history)
         max_tokens = MAX_TOKEN_COUNT[self._gpt_version]
-        self._post_msg('token_usage: %d/%d' % (curr_tokens, max_tokens))
+        self.post_msg('token_usage: %d/%d' % (curr_tokens, max_tokens))
         return curr_tokens, max_tokens
 
     def _get_token_count(self, msgs):
@@ -131,16 +141,6 @@ class Conversation:
         for m in msgs:
             token_count += len(encoding.encode(m['content']))
         return token_count
-
-    def _post_msg(self, msg, retries=0):
-        try:
-            self._client.chat_postMessage(channel=self._user, text=msg)
-        except Exception:
-            if retries < SLACK_ERROR_RETRIES:
-                log.error("Unable to send slack message, retrying...")
-                self._post_msg(msg, retries + 1)
-            else:
-                log.error("We were unable to ")
 
 
 class SlackGPT(object):
@@ -201,7 +201,7 @@ class SlackGPT(object):
                             self._conv_set_sys_role(user, channel, text)
                         # Set Temperature
                         elif text.startswith(self.CMD_TEMPERATURE_SET):
-                            self._conv_set_max_temperature(user, channel, text)
+                            self._conv_set_temperature(user, channel, text)
                         # Set Max Tokens
                         elif text.startswith(self.CMD_MAX_TOKENS_SET):
                             self._conv_set_max_tokens(user, channel, text)
@@ -222,18 +222,26 @@ class SlackGPT(object):
                 int(text.split(self.CMD_MAX_TOKENS_SET)[1].strip())
             )
         except Exception:
-            # Parse error
-            pass
+            log.info(
+                'Unable to set max tokens for user %s, value=%s' % (user, text)
+            )
+            conversation.post_msg(
+                'Unable to set max tokens, invalid value: %s' % text
+            )
 
-    def _conv_set_max_temperature(self, user, channel, text):
+    def _conv_set_temperature(self, user, channel, text):
         conversation = self._conv_check_mk(user, channel)
         try:
             conversation.set_temperature(
                 float(text.split(self.CMD_TEMPERATURE_SET)[1].strip())
             )
         except Exception:
-            # Parse error
-            pass
+            log.info(
+                'Unable to set temperature for user %s, value=%s' % (user, text)
+            )
+            conversation.post_msg(
+                'Unable to set temperature, invalid value: %s' % text
+            )
 
     def _conv_mk_chatgpt_request(self, user, channel, text):
         conversation = self._conv_check_mk(user, channel)
