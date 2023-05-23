@@ -29,6 +29,10 @@ log = _init_logging()
 
 
 class Conversation:
+    GPT_ROLE_ASSISTANT = 'assistant'  # message added by the chatbot
+    GPT_ROLE_USER = 'user'  # message added by the user
+    GPT_ROLE_SYSTEM = 'system'  # "fine-tuning" message
+
     def __init__(self, user, channel, gpt_version='gpt-3.5-turbo'):
         self._user = user
         self._channel = channel
@@ -47,7 +51,7 @@ class Conversation:
         self.post_msg("> Conversation Finished")
 
     def add_sys_content(self, text):
-        self._history.insert(0, {'role': 'system', 'content': text})
+        self._history.insert(0, {'role': self.GPT_ROLE_SYSTEM, 'content': text})
         log.info(
             'System Content added, user=%s, content=%s' % (
                 self._user, text
@@ -59,7 +63,9 @@ class Conversation:
             self._is_prompt_in_prg = True
 
             if retries == 0:
-                self._history.append({'role': 'user', 'content': text})
+                self._history.append(
+                    {'role': self.GPT_ROLE_USER, 'content': text}
+                )
                 tc, mc = self._inform_token_usage()
                 log.info(
                     'Prompt inserted: user=%s, text=%s, '
@@ -77,7 +83,7 @@ class Conversation:
                 )
                 gpt_response = completion['choices'][0]['message']['content']
                 self._history.append(
-                    {'role': 'assistant', 'content': gpt_response}
+                    {'role': self.GPT_ROLE_ASSISTANT, 'content': gpt_response}
                 )
                 log.info('ChatGPT Response: user=%s, text=%s' % (
                     self._user, gpt_response
@@ -119,6 +125,21 @@ class Conversation:
 
         log.info('Max Tokens set, user=%s, max_tokens=%d' % (self._user, val))
 
+    def post_settings(self):
+        sys_content = []
+        for m in self._history:
+            if m['role'] == self.GPT_ROLE_SYSTEM:
+                sys_content.append(m['content'])
+
+        tc, mc = self._inform_token_usage(False)
+
+        msg = 'sys_content=%s, token_count=%s, max_token_count=%s, ' \
+              'temperature=%s, max_tokens=%s' % (
+                  str(sys_content), tc, mc, self._temperature, self._max_tokens
+              )
+
+        self.post_msg(msg)
+
     def post_msg(self, msg, retries=0):
         try:
             self._client.chat_postMessage(channel=self._user, text=msg)
@@ -129,10 +150,11 @@ class Conversation:
             else:
                 log.error("We were unable to ")
 
-    def _inform_token_usage(self):
+    def _inform_token_usage(self, do_post=True):
         curr_tokens = self._get_token_count(self._history)
         max_tokens = MAX_TOKEN_COUNT[self._gpt_version]
-        self.post_msg('token_usage: %d/%d' % (curr_tokens, max_tokens))
+        if do_post:
+            self.post_msg('token_usage: %d/%d' % (curr_tokens, max_tokens))
         return curr_tokens, max_tokens
 
     def _get_token_count(self, msgs):
@@ -149,6 +171,7 @@ class SlackGPT(object):
     CMD_SYS_ROLE_MK = '\\sys_role'
     CMD_TEMPERATURE_SET = '\\temp_set'
     CMD_MAX_TOKENS_SET = '\\max_tokens_set'
+    CMD_SETTINGS_GET = '\\settings_get'
 
     def __init__(self):
         if not self._check_secrets():
@@ -205,9 +228,16 @@ class SlackGPT(object):
                         # Set Max Tokens
                         elif text.startswith(self.CMD_MAX_TOKENS_SET):
                             self._conv_set_max_tokens(user, channel, text)
+                        # Get Settings
+                        elif text == self.CMD_SETTINGS_GET:
+                            self._conv_get_settings(user, channel)
                         # Make ChatGPT Request
                         else:
                             self._conv_mk_chatgpt_request(user, channel, text)
+
+    def _conv_get_settings(self, user, channel):
+        conversation = self._conv_check_mk(user, channel)
+        conversation.post_settings()
 
     def _conv_set_sys_role(self, user, channel, text):
         conversation = self._conv_check_mk(user, channel)
