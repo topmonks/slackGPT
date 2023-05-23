@@ -193,7 +193,7 @@ class SlackGPT(object):
 
     def start(self):
         log.info('App Started...')
-        self._slack.start()
+        self._slack.start(port=PORT)
 
     def stop(self):
         # Never actually called, signals are handled by retarded Slack app
