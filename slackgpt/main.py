@@ -193,104 +193,59 @@ class SlackGPT(object):
                         if text == self.CMD_CONVERSATION_MK:
                             self._check_rm_conversation(user)
                             self._create_new_conversation(user, channel)
-
                         # Finish Conversation
                         elif text == self.CMD_CONVERSATION_RM:
                             self._check_rm_conversation(user)
-
                         # Set System role
                         elif text.startswith(self.CMD_SYS_ROLE_MK):
-                            if user in self._conversations.keys():
-                                conversation = self._conversations[user]
-                                conversation.add_sys_content(
-                                    text.split(self.CMD_SYS_ROLE_MK)[1].
-                                    strip()
-                                )
-                            else:
-                                conversation = \
-                                    self._create_new_conversation(
-                                        user, channel
-                                    )
-                                conversation.add_sys_content(
-                                    text.split(self.CMD_SYS_ROLE_MK)[1].
-                                    strip()
-                                )
-
+                            self._conv_set_sys_role(user, channel, text)
                         # Set Temperature
                         elif text.startswith(self.CMD_TEMPERATURE_SET):
-                            if user in self._conversations.keys():
-                                conversation = self._conversations[user]
-                                try:
-                                    conversation.set_temperature(
-                                        float(
-                                            text.split(
-                                                self.CMD_TEMPERATURE_SET
-                                            )[1].strip()
-                                        )
-                                    )
-                                except Exception:
-                                    # Parse error
-                                    pass
-                            else:
-                                conversation = \
-                                    self._create_new_conversation(
-                                        user, channel
-                                    )
-                                try:
-                                    conversation.set_temperature(
-                                        float(
-                                            text.split(
-                                                self.CMD_TEMPERATURE_SET)[1].
-                                            strip()
-                                        )
-                                    )
-                                except Exception:
-                                    # Parse error
-                                    pass
-
+                            self._conv_set_max_temperature(user, channel, text)
                         # Set Max Tokens
                         elif text.startswith(self.CMD_MAX_TOKENS_SET):
-                            if user in self._conversations.keys():
-                                conversation = self._conversations[user]
-                                try:
-                                    conversation.set_max_tokens(
-                                        int(
-                                            text.split(
-                                                self.CMD_MAX_TOKENS_SET
-                                            )[1].strip()
-                                        )
-                                    )
-                                except Exception:
-                                    # Parse error
-                                    pass
-                            else:
-                                conversation = \
-                                    self._create_new_conversation(
-                                        user, channel
-                                    )
-                                try:
-                                    conversation.set_max_tokens(
-                                        int(
-                                            text.split(
-                                                self.CMD_MAX_TOKENS_SET
-                                            )[1].strip()
-                                        )
-                                    )
-                                except Exception:
-                                    # Parse error
-                                    pass
-
+                            self._conv_set_max_tokens(user, channel, text)
                         # Make ChatGPT Request
                         else:
-                            if user in self._conversations.keys():
-                                conversation = self._conversations[user]
-                                conversation.add_message(text)
-                            else:
-                                conversation = \
-                                    self._create_new_conversation(
-                                        user, channel
-                                    )
-                                conversation.add_message(text)
+                            self._conv_mk_chatgpt_request(user, channel, text)
+
+    def _conv_set_sys_role(self, user, channel, text):
+        conversation = self._conv_check_mk(user, channel)
+        conversation.add_sys_content(
+            text.split(self.CMD_SYS_ROLE_MK)[1].strip()
+        )
+
+    def _conv_set_max_tokens(self, user, channel, text):
+        conversation = self._conv_check_mk(user, channel)
+        try:
+            conversation.set_max_tokens(
+                int(text.split(self.CMD_MAX_TOKENS_SET)[1].strip())
+            )
+        except Exception:
+            # Parse error
+            pass
+
+    def _conv_set_max_temperature(self, user, channel, text):
+        conversation = self._conv_check_mk(user, channel)
+        try:
+            conversation.set_temperature(
+                float(text.split(self.CMD_TEMPERATURE_SET)[1].strip())
+            )
+        except Exception:
+            # Parse error
+            pass
+
+    def _conv_mk_chatgpt_request(self, user, channel, text):
+        conversation = self._conv_check_mk(user, channel)
+        conversation.add_message(text)
+
+    def _conv_check_mk(self, user, channel):
+        if user in self._conversations.keys():
+            conversation = self._conversations[user]
+        else:
+            conversation = self._create_new_conversation(user, channel)
+
+        return conversation
 
     def _create_new_conversation(self, user, channel):
         conversation = Conversation(user, channel)
