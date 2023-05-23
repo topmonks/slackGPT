@@ -154,7 +154,13 @@ class Conversation:
         curr_tokens = self._get_token_count(self._history)
         max_tokens = MAX_TOKEN_COUNT[self._gpt_version]
         if do_post:
-            self.post_msg('token_usage: %d/%d' % (curr_tokens, max_tokens))
+            self.post_msg(
+                'token_usage: %d/%d (+ Number of tokens in the answer, '
+                'decrease max_tokens if problems occurs)' % (
+                    curr_tokens, max_tokens
+                )
+            )
+
         return curr_tokens, max_tokens
 
     def _get_token_count(self, msgs):
@@ -166,6 +172,7 @@ class Conversation:
 
 
 class SlackGPT(object):
+    
     CMD_CONVERSATION_MK = '\\start'
     CMD_CONVERSATION_RM = '\\end'
     CMD_SYS_ROLE_MK = '\\sys_role'
