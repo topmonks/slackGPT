@@ -148,7 +148,7 @@ class Conversation:
                 log.error("Unable to send slack message, retrying...")
                 self.post_msg(msg, retries + 1)
             else:
-                log.error("We were unable to ")
+                log.error("We were unable to post a message to the user")
 
     def _inform_token_usage(self, do_post=True):
         curr_tokens = self._get_token_count(self._history)
