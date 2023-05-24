@@ -41,8 +41,8 @@ class Conversation:
         self._client = WebClient(token=SLACK_BOT_TOKEN)
         self._history = []
         self._is_prompt_in_prg = False
-        self._max_tokens = 2000
-        self._temperature = 1.0
+        self._max_tokens = GPT_MAX_TOKENS_DEFAULT
+        self._temperature = GPT_TEMPERATURE_DEFAULT
 
     def start(self):
         self.post_msg("> New Conversation Started")

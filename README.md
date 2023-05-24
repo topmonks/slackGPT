@@ -29,7 +29,7 @@ is not necessarily needed, you can just start prompting)
 * **\sys_role content** - Add ChatGPT System Role for current conversation.
 * **\temp_set (0.0 - 2.0, default=1.0)** - Set Model Temperature for current 
 conversation
-* **\max_tokens_set (5 - 4000, default=2000)** - Set Maximum Number of Tokens that
+* **\max_tokens_set (5 - 4000, default=800)** - Set Maximum Number of Tokens that
 the response should have.
 * **\settings_get** - Return the Settings for current conversation.
 * Any other text acts as a prompt for ChatGPT
